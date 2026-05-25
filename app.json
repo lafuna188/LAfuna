@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Financial Monitor",
+    "slug": "financial-monitor",
+    "version": "1.0.1",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#070A12",
+    "splash": {
+      "backgroundColor": "#070A12",
+      "resizeMode": "contain"
+    },
+    "android": {
+      "package": "com.personal.financialmonitor",
+      "adaptiveIcon": {
+        "backgroundColor": "#070A12"
+      },
+      "versionCode": 2
+    },
+    "ios": {
+      "bundleIdentifier": "com.personal.financialmonitor",
+      "supportsTablet": false
+    },
+    "extra": {
+      "eas": {
+        "projectId": "437d666c-e87c-471e-8cf2-8185c1c4f145"
+      }
+    }
+  }
+}
