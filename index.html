@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Financial Monitor</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%; min-height: 100dvh;
+      background: #070A12; color: #EDE8DF;
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #root { height: 100%; display: flex; flex-direction: column; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #1E3452; border-radius: 3px; }
+
+    button { cursor: pointer; border: none; background: none; color: inherit; font: inherit; }
+    input  { outline: none; background: none; color: inherit; font: inherit; }
+
+    .mono { font-family: 'Courier New', Courier, monospace; }
+    .serif { font-family: Georgia, 'Times New Roman', serif; }
+
+    /* ── LAYOUT ── */
+    .app   { display: flex; flex-direction: column; height: 100dvh; }
+    .topbar {
+      background: #09101A; border-bottom: 1px solid #152030;
+      padding: 14px 18px 0; flex-shrink: 0;
+    }
+    .top-row {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 14px;
+    }
+    .app-title { font-family: Georgia, serif; font-size: 18px; font-weight: 700; letter-spacing: -.3px; }
+    .balance-pill { font-family: monospace; font-size: 14px; font-weight: 600; color: #C9963A; }
+
+    .tab-row { display: flex; gap: 4px; }
+    .tab-btn {
+      flex: 1; padding: 9px 4px; border-bottom: 2px solid transparent;
+      font-size: 11px; font-weight: 500; color: #607088; text-align: center;
+      transition: color .15s, border-color .15s; white-space: nowrap;
+    }
+    .tab-btn:hover { color: #EDE8DF; }
+    .tab-btn.active { border-bottom-color: #C9963A; color: #C9963A; font-weight: 700; }
+
+    .scroll { flex: 1; overflow-y: auto; }
+    .content { padding: 16px; padding-bottom: 50px; max-width: 600px; margin: 0 auto; }
+
+    /* ── CARDS ── */
+    .card {
+      background: #0C1220; border: 1px solid #152030; border-radius: 16px;
+      margin-bottom: 12px; overflow: hidden;
+    }
+    .balance-card {
+      background: #0F1A2E; border: 1px solid #1E3452; border-radius: 20px;
+      padding: 22px; margin-bottom: 12px; position: relative; overflow: hidden;
+    }
+    .gold-stripe {
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: #C9963A; opacity: .7;
+    }
+
+    /* ── LABELS ── */
+    .lbl { font-size: 9px; letter-spacing: 2px; color: #607088; margin-bottom: 6px; display: block; }
+
+    /* ── BALANCE ── */
+    .balance-row { display: flex; align-items: flex-end; margin: 4px 0 18px; }
+    .curr-sign { font-family: monospace; font-size: 16px; color: #C9963A; font-weight: 500; margin-bottom: 6px; margin-right: 6px; }
+    .balance-num { font-family: monospace; font-size: 44px; font-weight: 700; letter-spacing: -2px; line-height: 1; }
+
+    .progress-track { height: 6px; background: #080E18; border-radius: 3px; overflow: hidden; margin-bottom: 8px; position: relative; }
+    .progress-bg { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(208,72,72,.22); border-radius: 3px; }
+    .progress-fg { position: absolute; left: 0; top: 0; bottom: 0; background: #D04848; border-radius: 3px; }
+    .progress-lbls { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 11px; color: #607088; }
+
+    .remain-box {
+      border-radius: 12px; border: 1px solid; padding: 14px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .remain-lbl { font-size: 11px; color: #607088; }
+    .remain-sub { font-size: 10px; color: #2A4060; margin-top: 2px; }
+    .remain-amt { font-family: monospace; font-size: 22px; font-weight: 700; }
+
+    /* ── STAT GRID ── */
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 12px; }
+    .stat-card { background: #0C1220; border: 1px solid #152030; border-radius: 14px; padding: 14px; }
+    .stat-val  { font-family: monospace; font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .stat-sub  { font-size: 10px; color: #2A4060; }
+
+    /* ── ROWS ── */
+    .sum-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 18px; border-top: 1px solid #152030;
+    }
+    .sum-lbl { font-size: 13px; color: #607088; }
+    .sum-val { font-family: monospace; font-size: 13px; font-weight: 600; }
+    .sum-total {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px 18px;
+    }
+    .sum-total-lbl { font-family: Georgia, serif; font-size: 15px; font-weight: 600; }
+    .sum-total-val { font-family: monospace; font-size: 20px; font-weight: 700; }
+
+    /* ── PAGE HEADERS ── */
+    .page-title { font-family: Georgia, serif; font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+    .page-sub   { font-size: 12px; color: #607088; margin-bottom: 16px; line-height: 1.5; }
+    .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+    .section-title { font-family: Georgia, serif; font-size: 16px; font-weight: 600; }
+
+    /* ── BUTTONS ── */
+    .add-btn { background: rgba(201,150,58,.13); border: 1px solid rgba(201,150,58,.4); border-radius: 10px; padding: 8px 14px; font-size: 12px; font-weight: 700; color: #C9963A; }
+    .add-btn:hover { background: rgba(201,150,58,.2); }
+    .confirm-btn { flex: 2.5; background: #C9963A; border-radius: 12px; padding: 14px; font-size: 13px; font-weight: 700; color: #06090F; }
+    .confirm-btn:hover { background: #d9a840; }
+    .discard-btn { flex: 1; border: 1px solid #152030; border-radius: 12px; padding: 14px; font-size: 13px; font-weight: 600; color: #607088; }
+    .discard-btn:hover { border-color: #607088; }
+    .action-row { display: flex; gap: 10px; margin-bottom: 16px; }
+
+    /* ── SCAN PICKS ── */
+    .pick-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .pick-btn {
+      background: #0C1220; border: 1px solid #152030; border-radius: 16px;
+      padding: 20px; display: flex; flex-direction: column; align-items: center;
+      transition: border-color .15s;
+    }
+    .pick-btn:hover { border-color: #1E3452; }
+    .pick-icon  { font-size: 36px; margin-bottom: 10px; }
+    .pick-label { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .pick-sub   { font-size: 11px; color: #607088; text-align: center; }
+
+    .tip-row { padding: 12px 16px; border-top: 1px solid #152030; font-size: 12px; color: #607088; line-height: 1.5; }
+    .tip-row:first-child { border-top: none; }
+
+    /* ── BATCH BUTTON ── */
+    .batch-btn {
+      background: #0F1A2E; border: 1.5px solid #1E3452; border-radius: 16px;
+      margin-bottom: 14px; width: 100%; text-align: left;
+      transition: border-color .15s;
+    }
+    .batch-btn:hover { border-color: #C9963A; }
+    .batch-btn-inner { display: flex; align-items: center; gap: 14px; padding: 18px; }
+    .batch-btn-icon  { font-size: 32px; }
+    .batch-btn-title { font-size: 16px; font-weight: 700; margin-bottom: 3px; }
+    .batch-btn-sub   { font-size: 12px; color: #607088; line-height: 1.4; }
+    .batch-btn-arrow { font-size: 20px; color: #C9963A; margin-left: auto; }
+
+    .or-divider { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .or-line    { flex: 1; height: 1px; background: #152030; }
+    .or-txt     { font-size: 9px; color: #2A4060; letter-spacing: 2px; }
+
+    /* ── BATCH PROGRESS ── */
+    .batch-progress-card { display: flex; flex-direction: column; align-items: center; padding: 36px 24px; }
+    .spinner { width: 36px; height: 36px; border: 3px solid #1E3452; border-top-color: #C9963A; border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: 20px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .batch-summary-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 9px; margin-bottom: 14px; }
+    .batch-summary-card { background: #0C1220; border: 1px solid; border-radius: 12px; padding: 12px; text-align: center; }
+    .batch-sum-num  { font-family: monospace; font-size: 24px; font-weight: 700; margin-bottom: 2px; }
+    .batch-sum-lbl  { font-size: 9px; color: #607088; letter-spacing: 1.5px; }
+
+    .batch-row { display: flex; align-items: center; padding: 12px 14px; gap: 10px; }
+    .batch-thumb-wrap { width: 52px; height: 52px; border-radius: 8px; overflow: hidden; background: #152030; flex-shrink: 0; }
+    .batch-thumb { width: 100%; height: 100%; object-fit: cover; }
+    .batch-info { flex: 1; min-width: 0; }
+    .opacity-45 { opacity: .45; }
+
+    /* ── BADGES ── */
+    .badge { font-size: 8px; font-weight: 700; letter-spacing: .5px; border-radius: 4px; padding: 2px 5px; display: inline-block; border: 1px solid; }
+    .badge-new  { background: rgba(74,174,120,.12); border-color: rgba(74,174,120,.3);  color: #4AAE78; }
+    .badge-dup  { background: rgba(201,150,58,.12); border-color: rgba(201,150,58,.3);  color: #C9963A; }
+    .badge-err  { background: rgba(208,72,72,.12);  border-color: rgba(208,72,72,.3);   color: #D04848; }
+    .badge-ai   { background: rgba(74,138,232,.12); border-color: rgba(74,138,232,.3);  color: #4A8AE8; }
+    .badge-read { background: rgba(74,174,120,.12); border-color: rgba(74,174,120,.3);  color: #4AAE78; font-size: 9px; padding: 3px 9px; }
+
+    /* ── FIELD INPUTS ── */
+    .field-row  { padding: 12px 18px; border-top: 1px solid #152030; }
+    .field-input { display: block; width: 100%; color: #EDE8DF; font-size: 14px; font-weight: 500; border-bottom: 1px solid #1E3452; padding: 4px 0; margin-top: 4px; background: none; }
+    .field-input:focus { border-bottom-color: #C9963A; }
+    .field-input-big { font-family: monospace; font-size: 22px; font-weight: 700; color: #C9963A; }
+
+    .read-badge-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 14px 18px 10px; }
+
+    /* ── EXPENSE ROWS ── */
+    .exp-row { display: flex; align-items: center; padding: 14px 16px; }
+    .exp-icon { font-size: 22px; width: 32px; text-align: center; margin-right: 12px; flex-shrink: 0; }
+    .exp-info { flex: 1; min-width: 0; }
+    .exp-name-row { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; flex-wrap: wrap; }
+    .exp-name { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+    .exp-lbl  { font-size: 12px; color: #607088; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .exp-meta { font-size: 10px; color: #2A4060; margin-top: 2px; }
+    .exp-right { display: flex; flex-direction: column; align-items: flex-end; min-width: 85px; margin-left: 8px; flex-shrink: 0; }
+    .exp-amt   { font-family: monospace; font-size: 14px; font-weight: 700; }
+    .exp-pct   { font-size: 10px; color: #2A4060; margin-top: 2px; }
+
+    .list-foot { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: rgba(201,150,58,.05); }
+    .mono-md   { font-family: monospace; font-size: 16px; font-weight: 700; }
+
+    .urgent-chip { background: rgba(208,72,72,.12); border: 1px solid rgba(208,72,72,.3); border-radius: 4px; padding: 1px 5px; font-size: 8px; color: #D04848; font-weight: 700; letter-spacing: .5px; }
+
+    .mini-track { height: 2px; background: #152030; border-radius: 1px; margin-top: 8px; overflow: hidden; }
+    .mini-fill  { height: 100%; border-radius: 1px; }
+
+    .cat-chip { border: 1px solid; border-radius: 4px; padding: 1px 6px; font-size: 8px; font-weight: 700; letter-spacing: .5px; display: inline-block; }
+
+    /* ── DAY CHIPS ── */
+    .day-scroll { overflow-x: auto; margin-bottom: 14px; }
+    .day-scroll::-webkit-scrollbar { height: 0; }
+    .day-scroll-inner { display: flex; gap: 8px; padding-bottom: 4px; white-space: nowrap; width: max-content; }
+    .day-chip { background: #0C1220; border: 1px solid #152030; border-radius: 20px; padding: 7px 14px; display: inline-flex; flex-direction: column; align-items: center; min-width: 58px; transition: border-color .15s, background .15s; }
+    .day-chip:hover { border-color: #1E3452; }
+    .day-chip.active { border-color: #C9963A; background: rgba(201,150,58,.13); }
+    .day-chip-txt { font-size: 12px; font-weight: 600; color: #607088; margin-bottom: 1px; }
+    .day-chip-txt.active { color: #C9963A; }
+    .day-chip-count { font-family: monospace; font-size: 10px; color: #2A4060; }
+    .day-chip-count.active { color: #C9963A; }
+
+    .day-header { display: flex; justify-content: space-between; align-items: flex-end; padding: 0 2px; margin-bottom: 8px; }
+    .day-title  { font-family: Georgia, serif; font-size: 16px; font-weight: 700; }
+    .day-meta   { font-size: 11px; color: #607088; margin-top: 2px; }
+    .day-total  { font-family: monospace; font-size: 15px; font-weight: 700; }
+
+    .day-section { margin-bottom: 16px; }
+
+    /* ── DIVIDER ── */
+    .divider { height: 1px; background: #152030; }
+
+    /* ── ERROR CARD ── */
+    .error-card { background: rgba(208,72,72,.12); border: 1px solid rgba(208,72,72,.3); border-radius: 16px; padding: 20px; margin-bottom: 12px; }
+
+    /* ── PREVIEW IMG ── */
+    .preview-img { width: 100%; max-height: 200px; object-fit: contain; border-radius: 12px; margin-bottom: 16px; opacity: .85; }
+
+    /* ── EMPTY STATE ── */
+    .empty-card { display: flex; flex-direction: column; align-items: center; padding: 44px 24px; }
+    .empty-icon { font-size: 44px; margin-bottom: 14px; }
+
+    /* ── DRAG OVERLAY ── */
+    .drop-zone {
+      border: 2px dashed #1E3452; border-radius: 16px; padding: 32px;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      margin-bottom: 14px; transition: border-color .15s, background .15s;
+    }
+    .drop-zone.drag-over { border-color: #C9963A; background: rgba(201,150,58,.05); }
+    .drop-zone-icon { font-size: 40px; }
+    .drop-zone-txt  { font-size: 14px; font-weight: 600; color: #607088; }
+    .drop-zone-sub  { font-size: 11px; color: #2A4060; }
+
+    /* ── FILE INPUT HIDDEN ── */
+    input[type="file"] { display: none; }
+
+    @media (max-width: 420px) {
+      .balance-num { font-size: 34px; }
+      .content { padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useCallback } = React;
+
+// ─── API KEY ───────────────────────────────────────────────────────────────
+// Paste your Anthropic key here to enable receipt scanning.
+// Get one at: https://console.anthropic.com → API Keys
+const ANTHROPIC_API_KEY = '';
+
+// ─── DATA ──────────────────────────────────────────────────────────────────
+const BALANCE = 3824.60;
+
+const PLANNED = [
+  { id:1, name:'Штраф',                      label:'Fine',                      amount:500, icon:'⚠️', urgent:true  },
+  { id:2, name:'Соціалка',                   label:'Social payment',            amount:330, icon:'🏛️', urgent:true  },
+  { id:3, name:'Страхування',                label:'Insurance',                 amount:120, icon:'🛡️', urgent:true  },
+  { id:4, name:'Стоматолог',                 label:'Dentist',                   amount:100, icon:'🦷', urgent:false },
+  { id:5, name:'Масаж',                      label:'Massage',                   amount:65,  icon:'💆', urgent:false },
+  { id:6, name:'Дорога в Німеччину',         label:'Trip to Germany',           amount:50,  icon:'🚗', urgent:false },
+  { id:7, name:'Подарунки Хельсі і Майклу',  label:'Gifts for Helsi & Michael', amount:50,  icon:'🎁', urgent:false },
+];
+
+const CAT_ICONS = {
+  Food:'🍽️', Transport:'⛽', Health:'💊', Tech:'📱',
+  Utilities:'💡', Shopping:'🛍️', Entertainment:'🎭', Other:'🧾',
+};
+
+const CAT_COLORS = {
+  Food:         { bg:'rgba(201,150,58,0.10)',  border:'rgba(201,150,58,0.3)',  text:'#C9963A' },
+  Transport:    { bg:'rgba(74,138,232,0.10)',  border:'rgba(74,138,232,0.3)',  text:'#4A8AE8' },
+  Health:       { bg:'rgba(74,174,120,0.10)',  border:'rgba(74,174,120,0.3)',  text:'#4AAE78' },
+  Tech:         { bg:'rgba(168,85,247,0.10)',  border:'rgba(168,85,247,0.3)',  text:'#A855F7' },
+  Utilities:    { bg:'rgba(234,179,8,0.10)',   border:'rgba(234,179,8,0.3)',   text:'#EAB308' },
+  Shopping:     { bg:'rgba(236,72,153,0.10)',  border:'rgba(236,72,153,0.3)',  text:'#EC4899' },
+  Entertainment:{ bg:'rgba(249,115,22,0.10)',  border:'rgba(249,115,22,0.3)', text:'#F97316' },
+  Other:        { bg:'rgba(96,112,136,0.10)',  border:'rgba(96,112,136,0.3)', text:'#607088' },
+};
+
+const fmt = n => Number(n).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+const parseDateKey = d => {
+  if (!d || d==='Today') return 'Today';
+  const p = d.split('.');
+  return p.length===3 ? `${p[2]}-${p[1]}-${p[0]}` : d;
+};
+const formatDayLabel = k => {
+  if (k==='Today') return 'Today';
+  const p = k.split('-');
+  return p.length===3 ? `${p[2]}.${p[1]}` : k;
+};
+
+const fileToBase64 = file => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload  = () => resolve(r.result.split(',')[1]);
+  r.onerror = reject;
+  r.readAsDataURL(file);
+});
+
+const Divider = () => <div className="divider"/>;
+const Lbl = ({children}) => <span className="lbl">{children}</span>;
+
+// ════════════════════════════════════════════════════════════════════════════
+export default function App() {
+  const [tab, setTab]           = useState('overview');
+  const [receipts, setReceipts] = useState([]);
+  const [selectedDay, setSelectedDay] = useState('all');
+
+  // single scan
+  const [scanStep, setScanStep]     = useState('idle');
+  const [scanUri,  setScanUri]      = useState(null);
+  const [editFields, setEditFields] = useState(null);
+  const [scanError, setScanError]   = useState('');
+
+  // batch
+  const [batchStep, setBatchStep]         = useState('idle');
+  const [batchProgress, setBatchProgress] = useState({done:0,total:0,current:''});
+  const [batchResults, setBatchResults]   = useState([]);
+  const [batchDupCount, setBatchDupCount] = useState(0);
+  const [dragOver, setDragOver]           = useState(false);
+
+  const nextId   = useRef(100);
+  const fileRef  = useRef();
+  const batchRef = useRef();
+
+  // ── DERIVED ────────────────────────────────────────────────────────────────
+  const totalSpent   = receipts.reduce((s,r)=>s+r.amount,0);
+  const totalPlanned = PLANNED.reduce((s,p)=>s+p.amount,0);
+  const urgentSum    = PLANNED.filter(p=>p.urgent).reduce((s,p)=>s+p.amount,0);
+  const afterAll     = BALANCE - totalSpent - totalPlanned;
+  const spentPct     = Math.min((totalSpent/BALANCE)*100,100);
+  const plannedPct   = Math.min((totalPlanned/BALANCE)*100,100);
+
+  const receiptsByDay = receipts.reduce((acc,r)=>{
+    const k = parseDateKey(r.date);
+    if (!acc[k]) acc[k]=[];
+    acc[k].push(r);
+    return acc;
+  }, {});
+  const dayKeys = Object.keys(receiptsByDay).sort((a,b)=>{
+    if (a==='Today') return -1; if (b==='Today') return 1; return b.localeCompare(a);
+  });
+
+  // ── DUPLICATE CHECK ─────────────────────────────────────────────────────────
+  const isDup = (fields, batch=[]) => {
+    const st = (fields.store||'').toLowerCase().trim();
+    const am = parseFloat(fields.amount);
+    const dt = fields.date;
+    return receipts.some(r=>r.store.toLowerCase().trim()===st&&Math.abs(r.amount-am)<0.01&&r.date===dt)
+        || batch.some(b=>!b.isDuplicate&&b.fields&&(b.fields.store||'').toLowerCase().trim()===st&&Math.abs(parseFloat(b.fields.amount)-am)<0.01&&b.fields.date===dt);
+  };
+
+  // ── CLAUDE API ──────────────────────────────────────────────────────────────
+  const scanWithClaude = async (base64, mimeType='image/jpeg') => {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01'},
+      body: JSON.stringify({
+        model:'claude-haiku-4-5-20251001', max_tokens:600,
+        messages:[{role:'user', content:[
+          {type:'image', source:{type:'base64', media_type:mimeType, data:base64}},
+          {type:'text',  text:`Analyze this receipt. Reply ONLY with valid JSON, no markdown:\n{"store":"vendor name","date":"DD.MM.YYYY","total":0.00,"items":[{"name":"item","amount":0.00}],"category":"Food|Transport|Health|Tech|Utilities|Shopping|Entertainment|Other"}`},
+        ]}],
+      }),
+    });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error.message);
+    const txt = data.content?.find(b=>b.type==='text')?.text||'';
+    return JSON.parse(txt.replace(/```json|```/g,'').trim());
+  };
+
+  // ── SINGLE SCAN ─────────────────────────────────────────────────────────────
+  const onSingleFile = async e => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setScanUri(URL.createObjectURL(file)); setScanStep('scanning');
+    setScanError(''); setEditFields(null);
+    if (!ANTHROPIC_API_KEY){ setScanError('No API key set. Add your key to the ANTHROPIC_API_KEY variable in index.html.'); setScanStep('error'); return; }
+    try {
+      const b64 = await fileToBase64(file);
+      const json = await scanWithClaude(b64, file.type||'image/jpeg');
+      setEditFields({
+        store: json.store||'', amount: json.total!=null?String(json.total):'',
+        date: json.date||'', category: json.category||'Other',
+        item: json.items?.map(i=>i.name).join(', ')||'',
+      });
+      setScanStep('result');
+    } catch(e){ setScanError(e.message||'Could not read receipt.'); setScanStep('error'); }
+  };
+
+  const confirmScan = () => {
+    const amt = parseFloat(editFields?.amount);
+    if (!editFields||isNaN(amt)||amt<=0) return;
+    setReceipts(prev=>[{
+      id:nextId.current++, store:editFields.store||'Unknown',
+      item:editFields.item||'Scanned receipt', category:editFields.category||'Other',
+      amount:amt, date:editFields.date||'Today',
+      icon:CAT_ICONS[editFields.category]||'🧾',
+    },...prev]);
+    resetScan(); setTab('receipts');
+  };
+  const resetScan = () => { setScanStep('idle'); setScanUri(null); setEditFields(null); setScanError(''); };
+
+  // ── BATCH ───────────────────────────────────────────────────────────────────
+  const processBatch = async files => {
+    if (!files?.length) return;
+    if (!ANTHROPIC_API_KEY){ alert('Add your Anthropic API key to ANTHROPIC_API_KEY in index.html to enable scanning.'); return; }
+    const arr = Array.from(files);
+    setBatchStep('processing'); setBatchProgress({done:0,total:arr.length,current:''});
+    const results=[]; let dups=0;
+    for (let i=0;i<arr.length;i++){
+      setBatchProgress(p=>({...p,done:i,current:`Scanning ${i+1} of ${arr.length}…`}));
+      try {
+        const b64 = await fileToBase64(arr[i]);
+        const json = await scanWithClaude(b64, arr[i].type||'image/jpeg');
+        const fields = {
+          store:json.store||'', amount:json.total!=null?String(json.total):'',
+          date:json.date||'', category:json.category||'Other',
+          item:json.items?.map(x=>x.name).join(', ')||'',
+        };
+        const dup = isDup(fields,results);
+        if (dup) dups++;
+        results.push({uri:URL.createObjectURL(arr[i]),fields,isDuplicate:dup,id:nextId.current++});
+      } catch(e){
+        results.push({uri:URL.createObjectURL(arr[i]),fields:null,isDuplicate:false,error:e.message,id:nextId.current++});
+      }
+    }
+    setBatchResults(results); setBatchDupCount(dups);
+    setBatchProgress({done:arr.length,total:arr.length,current:'Done!'}); setBatchStep('review');
+  };
+
+  const onBatchFiles = e => processBatch(e.target.files);
+
+  const onDrop = e => { e.preventDefault(); setDragOver(false); processBatch(e.dataTransfer.files); };
+  const onDragOver = e => { e.preventDefault(); setDragOver(true); };
+  const onDragLeave = () => setDragOver(false);
+
+  const confirmBatch = () => {
+    const toAdd = batchResults.filter(r=>!r.isDuplicate&&r.fields&&parseFloat(r.fields.amount)>0).map(r=>({
+      id:r.id, store:r.fields.store||'Unknown', item:r.fields.item||'Scanned receipt',
+      category:r.fields.category||'Other', amount:parseFloat(r.fields.amount),
+      date:r.fields.date||'Today', icon:CAT_ICONS[r.fields.category]||'🧾',
+    }));
+    setReceipts(prev=>[...toAdd,...prev]); resetBatch(); setTab('receipts');
+  };
+  const resetBatch = () => { setBatchStep('idle'); setBatchResults([]); setBatchProgress({done:0,total:0,current:''}); setBatchDupCount(0); };
+
+  // ── TABS ────────────────────────────────────────────────────────────────────
+  const TABS = [
+    {key:'overview', label:'Overview', icon:'◈'},
+    {key:'scan',     label:'Scan',     icon:'◎'},
+    {key:'receipts', label:`Receipts${receipts.length?` (${receipts.length})`:''}`, icon:'◷'},
+    {key:'planned',  label:'Planned',  icon:'◻'},
+  ];
+
+  // ════════════════════════════════════════════════════════════════════════════
+  return (
+    <div className="app">
+      {/* HIDDEN FILE INPUTS */}
+      <input ref={fileRef}  type="file" accept="image/*" onChange={onSingleFile}/>
+      <input ref={batchRef} type="file" accept="image/*" multiple onChange={onBatchFiles}/>
+
+      {/* TOP BAR */}
+      <div className="topbar">
+        <div className="top-row">
+          <span className="app-title serif">Financial Monitor</span>
+          <span className="balance-pill mono">€ {fmt(BALANCE)}</span>
+        </div>
+        <div className="tab-row">
+          {TABS.map(t=>(
+            <button key={t.key} className={`tab-btn${tab===t.key?' active':''}`} onClick={()=>setTab(t.key)}>
+              {t.icon} {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="scroll">
+        <div className="content">
+
+          {/* ══════════════════════════════════ OVERVIEW */}
+          {tab==='overview' && <>
+            <div className="balance-card">
+              <div className="gold-stripe"/>
+              <Lbl>CURRENT ACCOUNT BALANCE</Lbl>
+              <div className="balance-row">
+                <span className="curr-sign mono">€</span>
+                <span className="balance-num mono">{fmt(BALANCE)}</span>
+              </div>
+              <div className="progress-track">
+                <div className="progress-bg" style={{width:`${spentPct+plannedPct}%`}}/>
+                <div className="progress-fg" style={{width:`${spentPct}%`}}/>
+              </div>
+              <div className="progress-lbls">
+                <span>Spent <span className="mono" style={{color:'#E07A28'}}>−€{fmt(totalSpent)}</span></span>
+                <span>Planned <span className="mono" style={{color:'#D04848'}}>−€{fmt(totalPlanned)}</span></span>
+              </div>
+              <div className="remain-box" style={{background:afterAll>=0?'rgba(74,174,120,0.12)':'rgba(208,72,72,0.12)',borderColor:afterAll>=0?'rgba(74,174,120,0.25)':'rgba(208,72,72,0.25)'}}>
+                <div>
+                  <div className="remain-lbl">After all expenses</div>
+                  <div className="remain-sub">balance − spent − planned</div>
+                </div>
+                <span className="remain-amt mono" style={{color:afterAll>=0?'#4AAE78':'#D04848'}}>€{fmt(afterAll)}</span>
+              </div>
+            </div>
+
+            <div className="stat-grid">
+              {[
+                {lbl:'Receipts',    val:receipts.length,      color:'#C9963A', money:false, sub:'scanned'},
+                {lbl:'Total Spent', val:totalSpent,           color:'#E07A28', money:true,  pre:'−€'},
+                {lbl:'After Spent', val:BALANCE-totalSpent,   color:'#EDE8DF', money:true,  pre:'€'},
+                {lbl:'After All',   val:afterAll,             color:afterAll>=0?'#4AAE78':'#D04848', money:true, pre:'€'},
+              ].map((st,i)=>(
+                <div key={i} className="stat-card">
+                  <Lbl>{st.lbl.toUpperCase()}</Lbl>
+                  <div className="stat-val mono" style={{color:st.color}}>
+                    {st.money ? `${st.pre}${fmt(Math.abs(st.val))}` : st.val}
+                  </div>
+                  {st.sub && <div className="stat-sub">{st.sub}</div>}
+                </div>
+              ))}
+            </div>
+
+            <div className="card">
+              <div style={{padding:'14px 18px 8px'}}><Lbl>FULL BREAKDOWN</Lbl></div>
+              {[
+                {lbl:`Account balance`,                       val:BALANCE,      color:'#EDE8DF', pre:'€'},
+                {lbl:`Spent (${receipts.length} receipts)`,   val:totalSpent,   color:'#E07A28', pre:'−€'},
+                {lbl:`Planned (${PLANNED.length} items)`,     val:totalPlanned, color:'#D04848', pre:'−€'},
+              ].map((r,i)=>(
+                <div key={i} className="sum-row">
+                  <span className="sum-lbl">{r.lbl}</span>
+                  <span className="sum-val mono" style={{color:r.color}}>{r.pre}{fmt(r.val)}</span>
+                </div>
+              ))}
+              <div className="sum-total" style={{background:afterAll>=0?'rgba(74,174,120,0.05)':'rgba(208,72,72,0.05)'}}>
+                <span className="sum-total-lbl serif">Net Remaining</span>
+                <span className="sum-total-val mono" style={{color:afterAll>=0?'#4AAE78':'#D04848'}}>€{fmt(afterAll)}</span>
+              </div>
+            </div>
+          </>}
+
+          {/* ══════════════════════════════════ SCAN */}
+          {tab==='scan' && <>
+            <div className="page-title serif">Scan Receipts</div>
+            <div className="page-sub">Upload photos or drag & drop — AI reads each receipt and skips duplicates automatically.</div>
+
+            {/* IDLE */}
+            {scanStep==='idle' && batchStep==='idle' && <>
+              {/* Drop zone / batch */}
+              <div
+                className={`drop-zone${dragOver?' drag-over':''}`}
+                onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave}
+              >
+                <span className="drop-zone-icon">📁</span>
+                <span className="drop-zone-txt">Drop receipt photos here</span>
+                <span className="drop-zone-sub">or choose files below — up to 20 at once</span>
+                <button className="batch-btn" style={{width:'auto',marginBottom:0}} onClick={()=>batchRef.current.click()}>
+                  <div className="batch-btn-inner" style={{padding:'12px 20px'}}>
+                    <span style={{fontSize:20}}>📂</span>
+                    <span style={{fontWeight:700,color:'#EDE8DF'}}>Batch Upload</span>
+                    <span className="batch-btn-arrow">→</span>
+                  </div>
+                </button>
+              </div>
+
+              <div className="or-divider">
+                <div className="or-line"/><span className="or-txt">OR SINGLE PHOTO</span><div className="or-line"/>
+              </div>
+
+              <div className="pick-row">
+                <button className="pick-btn" onClick={()=>fileRef.current.click()}>
+                  <span className="pick-icon">🖼️</span>
+                  <span className="pick-label">Choose Photo</span>
+                  <span className="pick-sub">Select from your files</span>
+                </button>
+                <button className="pick-btn" onClick={()=>{
+                  const inp = document.createElement('input');
+                  inp.type='file'; inp.accept='image/*'; inp.capture='environment';
+                  inp.onchange = onSingleFile; inp.click();
+                }}>
+                  <span className="pick-icon">📷</span>
+                  <span className="pick-label">Camera</span>
+                  <span className="pick-sub">Take photo (mobile)</span>
+                </button>
+              </div>
+
+              <div className="card">
+                <div style={{padding:'14px 16px 8px'}}><Lbl>TIPS FOR BEST RESULTS</Lbl></div>
+                {['📸  Good lighting — avoid shadows','🔍  Keep receipt flat and in focus','📄  Capture the full receipt','🔄  Duplicate photos are skipped automatically'].map((t,i)=>(
+                  <div key={i} className="tip-row" style={i===0?{borderTop:'none'}:{}}>{t}</div>
+                ))}
+              </div>
+            </>}
+
+            {/* BATCH PROCESSING */}
+            {batchStep==='processing' && (
+              <div className="card batch-progress-card">
+                <div className="spinner"/>
+                <div className="pick-label" style={{marginBottom:6}}>Scanning receipts…</div>
+                <div className="page-sub" style={{textAlign:'center',marginBottom:20}}>{batchProgress.current}</div>
+                <div className="progress-track" style={{width:'100%',marginBottom:8}}>
+                  <div className="progress-fg" style={{width:`${batchProgress.total>0?(batchProgress.done/batchProgress.total)*100:0}%`}}/>
+                </div>
+                <Lbl>{batchProgress.done} / {batchProgress.total} PHOTOS</Lbl>
+              </div>
+            )}
+
+            {/* BATCH REVIEW */}
+            {batchStep==='review' && <>
+              <div className="batch-summary-row">
+                <div className="batch-summary-card" style={{borderColor:'rgba(74,174,120,0.3)'}}>
+                  <div className="batch-sum-num mono" style={{color:'#4AAE78'}}>{batchResults.filter(r=>!r.isDuplicate&&r.fields).length}</div>
+                  <div className="batch-sum-lbl">NEW</div>
+                </div>
+                <div className="batch-summary-card" style={{borderColor:'rgba(201,150,58,0.3)'}}>
+                  <div className="batch-sum-num mono" style={{color:'#C9963A'}}>{batchDupCount}</div>
+                  <div className="batch-sum-lbl">DUPLICATES</div>
+                </div>
+                <div className="batch-summary-card" style={{borderColor:'rgba(208,72,72,0.3)'}}>
+                  <div className="batch-sum-num mono" style={{color:'#D04848'}}>{batchResults.filter(r=>r.error).length}</div>
+                  <div className="batch-sum-lbl">ERRORS</div>
+                </div>
+              </div>
+
+              <div className="card" style={{marginBottom:14}}>
+                <div style={{padding:'12px 16px'}}><Lbl>REVIEW BEFORE SAVING</Lbl></div>
+                {batchResults.map((r,i)=>(
+                  <div key={r.id}>
+                    <div className={`batch-row${r.isDuplicate?' opacity-45':''}`}>
+                      <div className="batch-thumb-wrap">
+                        {r.uri && <img src={r.uri} className="batch-thumb" alt=""/>}
+                      </div>
+                      <div className="batch-info">
+                        {r.error
+                          ? <div className="exp-name" style={{color:'#D04848'}}>⚠️ Could not read</div>
+                          : r.fields && <>
+                              <div className="exp-name">{r.fields.store||'Unknown'}</div>
+                              <div className="exp-lbl">{r.fields.item}</div>
+                              <div className="exp-meta">{r.fields.date} · {r.fields.category}</div>
+                            </>}
+                      </div>
+                      <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',minWidth:60,gap:4}}>
+                        {r.isDuplicate
+                          ? <span className="badge badge-dup">DUP</span>
+                          : r.error
+                            ? <span className="badge badge-err">ERR</span>
+                            : <span className="badge badge-new">NEW</span>}
+                        {r.fields && (
+                          <span className="mono" style={{fontSize:13,fontWeight:700,color:r.isDuplicate?'#607088':'#E07A28'}}>
+                            €{fmt(parseFloat(r.fields.amount)||0)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {i<batchResults.length-1 && <Divider/>}
+                  </div>
+                ))}
+              </div>
+
+              <div className="action-row">
+                <button className="discard-btn" onClick={resetBatch}>Discard All</button>
+                <button className="confirm-btn" onClick={confirmBatch}>
+                  ✓ Save {batchResults.filter(r=>!r.isDuplicate&&r.fields&&parseFloat(r.fields.amount)>0).length} Receipts
+                </button>
+              </div>
+            </>}
+
+            {/* SINGLE SCANNING */}
+            {scanStep==='scanning' && batchStep==='idle' && (
+              <div className="card batch-progress-card">
+                {scanUri && <img src={scanUri} className="preview-img" alt=""/>}
+                <div className="spinner"/>
+                <div className="pick-label" style={{marginBottom:6}}>Reading receipt…</div>
+                <div className="page-sub" style={{textAlign:'center'}}>Claude AI is extracting the data</div>
+              </div>
+            )}
+
+            {/* SINGLE ERROR */}
+            {scanStep==='error' && batchStep==='idle' && (
+              <div className="error-card">
+                <div style={{fontSize:14,fontWeight:600,color:'#D04848',marginBottom:8}}>⚠️ Could not read receipt</div>
+                <div className="page-sub" style={{marginBottom:16}}>{scanError}</div>
+                <button className="discard-btn" style={{color:'#D04848',borderColor:'rgba(208,72,72,0.3)'}} onClick={resetScan}>← Try Again</button>
+              </div>
+            )}
+
+            {/* SINGLE RESULT */}
+            {scanStep==='result' && editFields && batchStep==='idle' && <>
+              {scanUri && <img src={scanUri} className="preview-img" alt=""/>}
+              <div className="card" style={{marginBottom:14}}>
+                <div className="read-badge-row">
+                  <div>
+                    <Lbl>AI EXTRACTED DATA</Lbl>
+                    <div className="section-title serif">Review & Edit</div>
+                  </div>
+                  <span className="badge badge-read">✓ READ</span>
+                </div>
+                <Divider/>
+                {[
+                  {k:'store',    label:'STORE / VENDOR',     big:false},
+                  {k:'amount',   label:'TOTAL AMOUNT (€)',   big:true },
+                  {k:'date',     label:'DATE',               big:false},
+                  {k:'category', label:'CATEGORY',           big:false},
+                  {k:'item',     label:'ITEMS / DESCRIPTION',big:false},
+                ].map(f=>(
+                  <div key={f.k} className="field-row">
+                    <Lbl>{f.label}</Lbl>
+                    <input
+                      className={`field-input${f.big?' field-input-big':''}`}
+                      value={editFields[f.k]}
+                      onChange={e=>setEditFields(p=>({...p,[f.k]:e.target.value}))}
+                      type={f.k==='amount'?'number':'text'}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="action-row">
+                <button className="discard-btn" onClick={resetScan}>Discard</button>
+                <button className="confirm-btn" onClick={confirmScan}>✓ Add to Receipts</button>
+              </div>
+            </>}
+          </>}
+
+          {/* ══════════════════════════════════ RECEIPTS BY DAY */}
+          {tab==='receipts' && <>
+            <div className="page-header">
+              <div>
+                <div className="page-title serif">Receipts</div>
+                <div className="page-sub">
+                  {receipts.length
+                    ? `${receipts.length} receipts · €${fmt(totalSpent)} · ${dayKeys.length} day${dayKeys.length!==1?'s':''}`
+                    : 'No receipts yet'}
+                </div>
+              </div>
+              <button className="add-btn" onClick={()=>setTab('scan')}>+ Scan</button>
+            </div>
+
+            {receipts.length===0 ? (
+              <div className="card empty-card">
+                <span className="empty-icon">🧾</span>
+                <div className="pick-label" style={{marginBottom:8}}>No receipts scanned yet</div>
+                <div className="page-sub" style={{textAlign:'center',marginBottom:20}}>Use the Scan tab to photograph receipts</div>
+                <button className="add-btn" onClick={()=>setTab('scan')}>📷 Scan Receipts</button>
+              </div>
+            ) : <>
+              {/* Day chips */}
+              <div className="day-scroll">
+                <div className="day-scroll-inner">
+                  <button className={`day-chip${selectedDay==='all'?' active':''}`} onClick={()=>setSelectedDay('all')}>
+                    <span className={`day-chip-txt${selectedDay==='all'?' active':''}`}>All</span>
+                    <span className={`day-chip-count${selectedDay==='all'?' active':''}`}>{receipts.length}</span>
+                  </button>
+                  {dayKeys.map(key=>(
+                    <button key={key} className={`day-chip${selectedDay===key?' active':''}`} onClick={()=>setSelectedDay(key)}>
+                      <span className={`day-chip-txt${selectedDay===key?' active':''}`}>{formatDayLabel(key)}</span>
+                      <span className={`day-chip-count${selectedDay===key?' active':''}`}>{receiptsByDay[key].length}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Day sections */}
+              {(selectedDay==='all'?dayKeys:[selectedDay]).map(key=>{
+                const recs  = receiptsByDay[key]||[];
+                const total = recs.reduce((s,r)=>s+r.amount,0);
+                return (
+                  <div key={key} className="day-section">
+                    <div className="day-header">
+                      <div>
+                        <div className="day-title serif">{key==='Today'?'Today':formatDayLabel(key)}</div>
+                        <div className="day-meta">{recs.length} receipt{recs.length!==1?'s':''}</div>
+                      </div>
+                      <span className="day-total mono" style={{color:'#E07A28'}}>−€{fmt(total)}</span>
+                    </div>
+                    <div className="card">
+                      {recs.map((r,i)=>{
+                        const cc = CAT_COLORS[r.category]||CAT_COLORS.Other;
+                        return (
+                          <div key={r.id}>
+                            <div className="exp-row" style={{background:cc.bg}}>
+                              <span className="exp-icon">{r.icon}</span>
+                              <div className="exp-info">
+                                <div className="exp-name-row">
+                                  <span className="exp-name">{r.store}</span>
+                                  <span className="cat-chip" style={{background:cc.bg,borderColor:cc.border,color:cc.text}}>{r.category}</span>
+                                </div>
+                                <div className="exp-lbl">{r.item}</div>
+                              </div>
+                              <div className="exp-right">
+                                <span className="exp-amt mono" style={{color:cc.text}}>−€{fmt(r.amount)}</span>
+                                <span className="exp-pct">{total>0?((r.amount/total)*100).toFixed(1)+'%':''}</span>
+                              </div>
+                            </div>
+                            {i<recs.length-1 && <Divider/>}
+                          </div>
+                        );
+                      })}
+                      <div className="list-foot">
+                        <Lbl>DAY TOTAL</Lbl>
+                        <span className="mono-md mono" style={{color:'#E07A28'}}>−€{fmt(total)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {selectedDay==='all' && (
+                <div className="card">
+                  <div className="list-foot">
+                    <Lbl>GRAND TOTAL — ALL DAYS</Lbl>
+                    <span className="mono-md mono" style={{color:'#E07A28'}}>−€{fmt(totalSpent)}</span>
+                  </div>
+                </div>
+              )}
+            </>}
+          </>}
+
+          {/* ══════════════════════════════════ PLANNED */}
+          {tab==='planned' && <>
+            <div className="page-title serif">Planned Expenses</div>
+            <div className="page-sub" style={{marginBottom:14}}>{PLANNED.length} items · €{fmt(totalPlanned)} total</div>
+
+            <div className="stat-grid">
+              {[
+                {lbl:'URGENT (3)',    val:urgentSum,             color:'#D04848', sub:'Fine · Social · Insurance'},
+                {lbl:'OPTIONAL (4)', val:totalPlanned-urgentSum, color:'#607088', sub:'Dentist · Travel · Gifts'},
+              ].map((st,i)=>(
+                <div key={i} className="stat-card">
+                  <Lbl>{st.lbl}</Lbl>
+                  <div className="stat-val mono" style={{color:st.color}}>−€{fmt(st.val)}</div>
+                  <div className="stat-sub">{st.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="card">
+              {(()=>{
+                let run = BALANCE - totalSpent;
+                return PLANNED.map((p,i)=>{
+                  run -= p.amount;
+                  return (
+                    <div key={p.id}>
+                      <div className="exp-row" style={p.urgent?{background:'rgba(208,72,72,0.03)'}:{}}>
+                        <span className="exp-icon">{p.icon}</span>
+                        <div className="exp-info">
+                          <div className="exp-name-row">
+                            <span className="exp-name">{p.name}</span>
+                            {p.urgent && <span className="urgent-chip">URGENT</span>}
+                          </div>
+                          <div className="exp-lbl">{p.label}</div>
+                          <div className="mini-track">
+                            <div className="mini-fill" style={{width:`${(p.amount/totalPlanned)*100}%`,background:p.urgent?'#D04848':'#607088'}}/>
+                          </div>
+                        </div>
+                        <div className="exp-right">
+                          <span className="exp-amt mono" style={{color:p.urgent?'#D04848':'#607088'}}>−€{fmt(p.amount)}</span>
+                          <span className="exp-pct">{((p.amount/totalPlanned)*100).toFixed(1)}%</span>
+                          <span className="exp-pct">→ €{fmt(run)}</span>
+                        </div>
+                      </div>
+                      {i<PLANNED.length-1 && <Divider/>}
+                    </div>
+                  );
+                });
+              })()}
+              <div className="list-foot">
+                <Lbl>REMAINING AFTER ALL</Lbl>
+                <span className="mono-md mono" style={{color:'#4AAE78'}}>€{fmt(afterAll)}</span>
+              </div>
+            </div>
+          </>}
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
