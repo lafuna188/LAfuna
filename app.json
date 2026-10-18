@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Financial Monitor",
-    "slug": "financial-monitor",
-    "version": "1.0.1",
+    "name": "VoiceGuard",
+    "slug": "voiceguard",
+    "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#070A12",
@@ -11,15 +11,19 @@
       "resizeMode": "contain"
     },
     "android": {
-      "package": "com.personal.financialmonitor",
+      "package": "com.personal.voiceguard",
       "adaptiveIcon": {
         "backgroundColor": "#070A12"
       },
-      "versionCode": 2
+      "versionCode": 1,
+      "permissions": ["RECORD_AUDIO", "VIBRATE"]
     },
     "ios": {
-      "bundleIdentifier": "com.personal.financialmonitor",
-      "supportsTablet": false
+      "bundleIdentifier": "com.personal.voiceguard",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "VoiceGuard потребує мікрофону для аналізу гучності та темпу мовлення."
+      }
     },
     "extra": {
       "eas": {
