@@ -2,6 +2,7 @@
   "expo": {
     "name": "VoiceGuard",
     "slug": "voiceguard",
+    "owner": "lafunacorp",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -27,7 +28,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "437d666c-e87c-471e-8cf2-8185c1c4f145"
+        "projectId": "ec85f93f-3ae9-44ae-93f8-d1e735e7b5db"
       }
     }
   }
