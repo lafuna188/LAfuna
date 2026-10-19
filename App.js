@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
   StyleSheet, StatusBar, Platform, SafeAreaView, Switch, Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { Audio } from 'expo-av';
 import * as Speech from 'expo-speech';
@@ -89,6 +90,9 @@ export default function App() {
   useEffect(() => { smoothDbRef.current  = smoothDb;  }, [smoothDb]);
   useEffect(() => { settingsRef.current  = settings;  }, [settings]);
   useEffect(() => { baselineRef.current  = baseline;  }, [baseline]);
+
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
 
   // ── LOAD SAVED ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -314,22 +318,40 @@ export default function App() {
   return (
     <SafeAreaView style={s.safe}>
       <StatusBar barStyle="light-content" backgroundColor={C.bg}/>
+      <View style={isLandscape ? s.layoutRow : s.layout}>
 
-      {/* TOP BAR */}
-      <View style={s.topBar}>
-        <View style={s.topRow}>
-          <Text style={s.appTitle}>VoiceGuard</Text>
-          {isMonitoring && <View style={s.livePill}><Text style={s.liveTxt}>● LIVE</Text></View>}
+      {isLandscape ? (
+        /* SIDEBAR (landscape) */
+        <View style={s.sidebar}>
+          <Text style={s.appTitle}>VG</Text>
+          {isMonitoring && <View style={[s.livePill, {marginTop:6}]}><Text style={s.liveTxt}>● LIVE</Text></View>}
+          <View style={{marginTop:16}}>
+            {TABS.map(t => (
+              <TouchableOpacity key={t.key} onPress={() => setTab(t.key)}
+                style={[s.sideTab, tab === t.key && s.sideTabActive]}>
+                <Text style={[s.sideTabIcon, tab === t.key && {color:C.gold}]}>{t.icon}</Text>
+                <Text style={[s.sideTabTxt, tab === t.key && {color:C.gold, fontWeight:'700'}]}>{t.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
-        <View style={s.tabRow}>
-          {TABS.map(t => (
-            <TouchableOpacity key={t.key} onPress={() => setTab(t.key)}
-              style={[s.tabBtn, tab === t.key && s.tabBtnActive]}>
-              <Text style={[s.tabTxt, tab === t.key && s.tabTxtActive]}>{t.icon} {t.label}</Text>
-            </TouchableOpacity>
-          ))}
+      ) : (
+        /* TOP BAR (portrait) */
+        <View style={s.topBar}>
+          <View style={s.topRow}>
+            <Text style={s.appTitle}>VoiceGuard</Text>
+            {isMonitoring && <View style={s.livePill}><Text style={s.liveTxt}>● LIVE</Text></View>}
+          </View>
+          <View style={s.tabRow}>
+            {TABS.map(t => (
+              <TouchableOpacity key={t.key} onPress={() => setTab(t.key)}
+                style={[s.tabBtn, tab === t.key && s.tabBtnActive]}>
+                <Text style={[s.tabTxt, tab === t.key && s.tabTxtActive]}>{t.icon} {t.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
-      </View>
+      )}
 
       <ScrollView style={s.scroll} contentContainerStyle={s.container}
         showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -638,6 +660,7 @@ export default function App() {
         )}
 
       </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -663,9 +686,17 @@ function StepRow({ label, sub, value, min, max, step, display, onChange }) {
 
 // ─── STYLES ────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  safe:      { flex:1, backgroundColor:C.bg },
-  scroll:    { flex:1 },
-  container: { padding:15, paddingBottom:50 },
+  safe:       { flex:1, backgroundColor:C.bg },
+  layout:     { flex:1 },
+  layoutRow:  { flex:1, flexDirection:'row' },
+  scroll:     { flex:1 },
+  container:  { padding:15, paddingBottom:50 },
+
+  sidebar:     { width:90, backgroundColor:'#09101A', borderRightWidth:1, borderRightColor:C.border, padding:10, paddingTop:14 },
+  sideTab:     { paddingVertical:10, paddingHorizontal:4, borderRadius:10, marginBottom:4, alignItems:'center' },
+  sideTabActive: { backgroundColor:C.goldDim },
+  sideTabIcon: { fontSize:16, color:C.mid, marginBottom:3 },
+  sideTabTxt:  { fontSize:8, color:C.mid, textAlign:'center', fontFamily:Platform.OS==='android'?'sans-serif':'System' },
 
   topBar:   { backgroundColor:'#09101A', borderBottomWidth:1, borderBottomColor:C.border, paddingHorizontal:15, paddingTop:12, paddingBottom:0 },
   topRow:   { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:12 },
