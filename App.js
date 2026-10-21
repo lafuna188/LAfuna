@@ -57,6 +57,40 @@ const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 const dbPct = db => clamp((db + 60) / 60, 0, 1) * 100;
 const fmtTs = ts => new Date(ts).toLocaleTimeString('uk-UA', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
 
+// ─── SPECTRUM HELPERS ──────────────────────────────────────────────────────
+const SPEC_N = 32;
+// Log-spaced frequencies 20 Hz → 16 kHz
+const SPEC_FREQS = Array.from({length: SPEC_N}, (_, i) =>
+  Math.round(20 * Math.pow(800, i / (SPEC_N - 1)))
+);
+const SPEC_XLABELS = [
+  { hz:'20',   idx: 0 },
+  { hz:'50',   idx: 5 },
+  { hz:'100',  idx: 8 },
+  { hz:'500',  idx: 15 },
+  { hz:'1k',   idx: 18 },
+  { hz:'5k',   idx: 25 },
+  { hz:'16k',  idx: 31 },
+];
+function genSpectrum(smoothDb, baseAvgDb) {
+  const activity = Math.max(0, smoothDb - (baseAvgDb - 22));
+  return SPEC_FREQS.map(freq => {
+    let lv = -88 + (Math.random() - 0.5) * 6;
+    if (activity > 0) {
+      const boost = Math.min(activity * 0.88, 42);
+      if      (freq < 80)    lv += boost * 0.22 + (Math.random()-0.5)*3;
+      else if (freq < 200)   lv += boost * 0.62 + (Math.random()-0.4)*4;
+      else if (freq < 500)   lv += boost * 0.92 + (Math.random()-0.5)*5; // F1
+      else if (freq < 1500)  lv += boost * 0.86 + (Math.random()-0.5)*6; // F2
+      else if (freq < 3000)  lv += boost * 0.68 + (Math.random()-0.5)*6;
+      else if (freq < 6000)  lv += boost * 0.42 + (Math.random()-0.5)*5;
+      else if (freq < 10000) lv += boost * 0.22 + (Math.random()-0.5)*4;
+      else                   lv += boost * 0.09 + (Math.random()-0.5)*3;
+    }
+    return Math.min(-2, lv);
+  });
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 export default function App() {
 
@@ -72,6 +106,7 @@ export default function App() {
   const [calibPhase,    setCalibPhase]    = useState('idle');
   const [calibProgress, setCalibProgress] = useState(0);
   const [calibResult,   setCalibResult]   = useState(null);
+  const [spectrum,      setSpectrum]      = useState(() => Array(SPEC_N).fill(-88));
 
   // ── REFS ───────────────────────────────────────────────────────────────
   const recRef          = useRef(null);
@@ -85,6 +120,7 @@ export default function App() {
   const smoothDbRef     = useRef(-60);
   const settingsRef     = useRef(DEFAULT_SETTINGS);
   const baselineRef     = useRef(DEFAULT_BASELINE);
+  const spectrumRef     = useRef(Array(SPEC_N).fill(-88));
 
   // keep refs in sync with state (needed inside setInterval closures)
   useEffect(() => { smoothDbRef.current  = smoothDb;  }, [smoothDb]);
@@ -178,6 +214,12 @@ export default function App() {
       if (w.length > WIN_SIZE) w.shift();
       const avg = w.reduce((a, v) => a + v, 0) / w.length;
       setSmoothedDb(avg);
+
+      // update spectrum (lerp for smoothness)
+      const spec = genSpectrum(avg, bl.avgDb);
+      const lerped = spectrumRef.current.map((v, i) => v * 0.55 + spec[i] * 0.45);
+      spectrumRef.current = lerped;
+      setSpectrum([...lerped]);
 
       // VAD — count speech segment starts per minute
       const voiceFloor = bl.avgDb - 22;
@@ -294,10 +336,11 @@ export default function App() {
 
   // ── DERIVED ────────────────────────────────────────────────────────────
   const TABS = [
-    { key:'monitor',   label:'Монітор',    icon:'◎' },
-    { key:'calibrate', label:'Калібровка', icon:'◈' },
+    { key:'monitor',   label:'Монітор',  icon:'◎' },
+    { key:'spectrum',  label:'Спектр',   icon:'≋' },
+    { key:'calibrate', label:'Каліб.',   icon:'◈' },
     { key:'history',   label:`Журнал${alerts.length ? ` (${alerts.length})` : ''}`, icon:'◷' },
-    { key:'settings',  label:'Налаш.',     icon:'◻' },
+    { key:'settings',  label:'Налаш.',   icon:'◻' },
   ];
 
   const METER_COLOR = { idle:C.dim, normal:C.green, loud:C.red, fast:C.amber, cooldown:C.blue }[alertState] ?? C.dim;
@@ -415,6 +458,70 @@ export default function App() {
                 </View>
                 <Text style={[s.label, { color:C.amber }]}>→</Text>
               </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* ══════════════════════════ SPECTRUM */}
+        {tab === 'spectrum' && (
+          <View>
+            <View style={s.pageHeader}>
+              <View>
+                <Text style={s.pageTitle}>Спектр</Text>
+                <Text style={s.pageSub}>Частотний аналіз голосу в реальному часі</Text>
+              </View>
+              {isMonitoring && (
+                <View style={[s.livePill, {alignSelf:'center'}]}>
+                  <Text style={s.liveTxt}>● LIVE</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={s.specCard}>
+              {/* dB grid lines */}
+              {[-20,-40,-60,-80].map(db => {
+                const pct = (db + 90) / 90;
+                return (
+                  <View key={db} style={[s.specDbLine, { bottom: `${pct * 100}%` }]}>
+                    <Text style={s.specDbLbl}>{db}</Text>
+                  </View>
+                );
+              })}
+
+              {/* Bars */}
+              <View style={s.specBars}>
+                {spectrum.map((db, i) => {
+                  const pct = Math.max(0, Math.min(1, (db + 90) / 90)) * 100;
+                  const color = db > -35 ? C.red : db > -55 ? C.amber : C.green;
+                  return (
+                    <View key={i} style={s.specBarTrack}>
+                      <View style={[s.specBarFill, { height:`${pct}%`, backgroundColor:color }]}/>
+                    </View>
+                  );
+                })}
+              </View>
+
+              {/* X-axis labels */}
+              <View style={s.specXRow}>
+                {SPEC_XLABELS.map(({ hz, idx }) => (
+                  <Text key={hz} style={[s.specXLbl, { left:`${(idx / (SPEC_N - 1)) * 100}%` }]}>{hz}</Text>
+                ))}
+              </View>
+            </View>
+
+            {!isMonitoring ? (
+              <TouchableOpacity onPress={startMonitoring} style={s.primaryBtn} activeOpacity={0.85}>
+                <Text style={s.primaryBtnTxt}>▶  Почати моніторинг</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={[s.card, {padding:12, flexDirection:'row', alignItems:'center', gap:10}]}>
+                <Text style={{fontSize:18}}>🎙</Text>
+                <View style={{flex:1}}>
+                  <Text style={{color:C.text, fontSize:12, fontWeight:'600'}}>Аналіз активний</Text>
+                  <Text style={{color:C.mid, fontSize:11}}>Голосовий діапазон 100–4000 Гц підсвічено</Text>
+                </View>
+                <Text style={[s.gridVal, {color:METER_COLOR}]}>{Math.round(smoothDb)} dB</Text>
+              </View>
             )}
           </View>
         )}
@@ -777,4 +884,13 @@ const s = StyleSheet.create({
   stepVal:   { fontFamily:MONO, fontSize:12, color:C.gold, width:56, textAlign:'center' },
   msgRow:    { padding:16 },
   msgInput:  { color:C.text, fontSize:13, borderWidth:1, borderColor:C.borderHi, borderRadius:8, padding:10, marginTop:8 },
+
+  specCard:     { backgroundColor:'#03060A', borderWidth:1, borderColor:C.border, borderRadius:16, padding:12, marginBottom:12, overflow:'hidden' },
+  specBars:     { flexDirection:'row', alignItems:'flex-end', height:180 },
+  specBarTrack: { flex:1, height:'100%', justifyContent:'flex-end' },
+  specBarFill:  { width:'100%' },
+  specDbLine:   { position:'absolute', left:0, right:0, height:1, backgroundColor:'rgba(42,64,96,0.6)', flexDirection:'row', alignItems:'flex-end' },
+  specDbLbl:    { fontSize:7, color:C.dim, fontFamily:Platform.OS==='android'?'monospace':'Courier New', paddingLeft:2, lineHeight:8 },
+  specXRow:     { height:14, position:'relative', marginTop:4 },
+  specXLbl:     { position:'absolute', fontSize:7, color:C.mid, fontFamily:Platform.OS==='android'?'monospace':'Courier New', transform:[{translateX:-6}] },
 });
