@@ -16,7 +16,7 @@
       "adaptiveIcon": {
         "backgroundColor": "#070A12"
       },
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": ["RECORD_AUDIO", "VIBRATE"]
     },
     "ios": {
